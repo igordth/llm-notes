@@ -48,6 +48,11 @@ docker run -i \
     ghcr.io/abetlen/llama-cpp-python:latest
 ```
 
+One row:
+```
+docker run -i -p 8000:8000 --name llcpp-saiga_mistral_7b-q4 -v c:/models:/models -e MODEL=/models/saiga_mistral_7b-q4_K.gguf ghcr.io/abetlen/llama-cpp-python:latest
+```
+
 Если вы увидели:
 
 ```
@@ -148,7 +153,7 @@ curl --location 'http://localhost:80/v1/chat/completions' \
 - `docker logs -f CONTAINER_ID` - логи контейнера в реальном времени (follow)
 - `docker stats CONTAINER_ID` - отображает инфу по потребляемым ресурсам контейнера интерактивно
 
-И последний штрих это параметры которые мы можем передавать в тело сообщения json-ом, те же что и метод Llama.create_chat_completion:
+И последний штрих это параметры которые мы можем передавать в тело сообщения json-ом, те же что и метод [Llama.create_chat_completion](https://llama-cpp-python.readthedocs.io/en/latest/api-reference/#llama_cpp.Llama.create_chat_completion):
 
 ```
 Args:
@@ -184,7 +189,71 @@ Args:
 - `max_tokens` - сколько можно потратить токенов на ответ (грубо говоря длина ответа)
 - `temperature` - насколько точным должен быть ответ может ли модель немного пофантазировать, чем больше тем больше фантазий (тут за свои слова я не ручаюсь)
 
-Вот теперь точно ВСЕ!
+В принципе это все! Но для любителей чуть более глубокого погружения, еще немного текста.
+
+### Чуть более глубокое погружение (CONFIG_FILE)
+
+Тут разберем параметры с которыми запускается модель и сам сервер.
+
+Итак, основная точка входа тут [llama_cpp/server/__main__](https://github.com/abetlen/llama-cpp-python/blob/main/llama_cpp/server/__main__.py) -
+это скрипт на python и он достаточно короткий, чтобы в него вглядеться, даже без навыков python. 
+
+Вот запуск самого http сервера `uvicorn.run(...`.
+
+Вот `app = create_app(...` создание application(a), инициализация основного класса.
+
+В `create_app` передаются `server_settings` и `model_settings`. Практически в самом верху идет объявление этих переменных. 
+А немного ниже вот такая строка `config_file = os.environ.get("CONFIG_FILE", args.config_file)` - это то что нам нужно!
+
+Получается что мы можем подкинуть в 1 файл все настройки модели и сервера, просто создав этот файл и пробросив переменную 
+среды в докер контейнер `... -e CONFIG_FILE=/path_to_config_file ...` при его создании.
+
+Параметры доступные для `server_settings` [смотри тут](https://llama-cpp-python.readthedocs.io/en/latest/server/#llama_cpp.server.settings.ServerSettings).
+
+Параметры доступные для `model_settings` [смотри тут](https://llama-cpp-python.readthedocs.io/en/latest/server/#llama_cpp.server.settings.ModelSettings).
+
+Отлично, приступим!
+
+Для начала создадим конфиг файл в той же директории где и наши модели для модели `/models/saiga_mistral_7b-q4_K.gguf` и 
+назовем его так же как и модель `saiga_mistral_7b-q4_K.json`. То есть в моем случае это будет `c:/models/saiga_mistral_7b-q4_K.json`.
+С примерно таким содержимым:
+
+```json
+{
+    "models": [
+        {
+            "model": "/models/saiga_mistral_7b-q4_K.gguf",
+            "model_alias": "saiga_mistral_7b-q4_K",
+            "chat_format": "llama-2",
+            "n_gpu_layers": 0,
+            "n_ctx": 4096,
+            "n_batch": 1024,
+            "cache": true,
+            "cache_type": "ram",
+            "cache_size": 1073741824,
+            "verbose": true
+        }
+    ]
+}
+```
+
+И команда для создания контейтера будет выглядеть так:
+
+```
+docker run -i \
+    -p 8000:8000 \
+    --name llcpp-wcfg-saiga_mistral_7b-q4 \
+    -v c:/models:/models \
+    -e CONFIG_FILE=/models/saiga_mistral_7b-q4_K.json \
+    ghcr.io/abetlen/llama-cpp-python:latest
+```
+
+One row:
+```
+docker run -i -p 8000:8000 --name llcpp-wcfg-saiga_mistral_7b-q4 -v c:/models:/models -e CONFIG_FILE=/models/saiga_mistral_7b-q4_K.json ghcr.io/abetlen/llama-cpp-python:latest
+```
+
+На этом все!
 
 ---
 
