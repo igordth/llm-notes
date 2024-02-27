@@ -1,3 +1,10 @@
+<!-- TOC -->
+* [Запуск LLM text-generation on CPU](#запуск-llm-text-generation-on-cpu)
+  * [Docker + llama-cpp-python](#docker--llama-cpp-python)
+    * [Чуть более глубокое погружение (CONFIG_FILE)](#чуть-более-глубокое-погружение-config_file)
+* [Запуск LLM text-generation с помощью docker + vllm на GPU](#запуск-llm-text-generation-с-помощью-docker--vllm-на-gpu)
+<!-- TOC -->
+
 # Запуск LLM text-generation on CPU
 
 LLM - large language model, большие языковые модели, еще проще нейронные сети.
